@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Paper Requirement Calculator</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
+        }
+
+        button {
+            padding: 10px 20px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+
+        button:hover {
+            background: #45a049;
+        }
+
+        .export-btn {
+            background: #2196F3;
+        }
+
+        .export-btn:hover {
+            background: #0b7dda;
+        }
+
+        #reportContent {
+            background: white;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 30px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        th {
+            background-color: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+
+        input, select {
+            width: 100%;
+            padding: 4px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            font-size: 12px;
+        }
+
+        input:focus, select:focus {
+            outline: none;
+            border-color: #4CAF50;
+        }
+
+        .grand-total {
+            font-weight: bold;
+            background-color: #f0f0f0;
+        }
+
+        .summary-table {
+            margin-top: 30px;
+        }
+
+        .summary-table th {
+            background-color: #2196F3;
+        }
+
+        .readonly {
+            background-color: #f9f9f9;
+        }
+
+        .paper-size-col {
+            width: 100px;
+        }
+
+        .qty-col {
+            width: 100px;
+        }
+
+        @media print {
+            .controls {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Work Flow - Paper Requirement Calculator</h1>
+        
+        <div class="controls">
+            <button onclick="addRow()">Add Row</button>
+            <button class="export-btn" onclick="exportToPDF()">Export to PDF</button>
+            <button class="export-btn" onclick="exportToImage()">Export to Image</button>
+        </div>
+
+        <div id="reportContent">
+            <table id="mainTable">
+                <thead>
+                    <tr>
+                        <th>Sl No</th>
+                        <th>PO No</th>
+                        <th>Work Description</th>
+                        <th>Print Specifications</th>
+                        <th>Paper GSM</th>
+                        <th>Qty</th>
+                        <th>Paper Type</th>
+                        <th>Dummy in Paper</th>
+                        <th>Reem in Dummy</th>
+                        <th>Requirement in Dummy</th>
+                    </tr>
+                </thead>
+                <tbody id="tableBody">
+                </tbody>
+                <tfoot>
+                    <tr class="grand-total">
+                        <td colspan="8">Grand Total</td>
+                        <td id="grandTotal">0.00</td>
+                        <td></td>
+                    </tr>
+                </tfoot>
+            </table>
+
+            <table class="summary-table">
+                <thead>
+                    <tr>
+                        <th colspan="3">Summary Paper Requirement</th>
+                    </tr>
+                    <tr>
+                        <th>Thickness</th>
+                        <th>Reem in Dummy</th>
+                        <th>Requirement in Dummy</th>
+                    </tr>
+                </thead>
+                <tbody id="summaryBody">
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let rowCount = 0;
+        const paperSizes = {
+            'A5': { sheetsPerDummy: 8 },    // 1 dummy = 8 A5 sheets
+            'A4': { sheetsPerDummy: 4 },    // 1 dummy = 4 A4 sheets
+            'A3': { sheetsPerDummy: 2 },    // 1 dummy = 2 A3 sheets
+            'Other': { sheetsPerDummy: 0 }
+        };
+        
+        const SHEETS_PER_REAM = 500;
+
+        function initializeRows() {
+            for (let i = 0; i < 7; i++) {
+                addRow();
+            }
+        }
+
+        function addRow() {
+            rowCount++;
+            const tbody = document.getElementById('tableBody');
+            const row = tbody.insertRow();
+            
+            row.innerHTML = `
+                <td>${rowCount}</td>
+                <td><input type="text" id="po_${rowCount}" /></td>
+                <td><input type="text" id="desc_${rowCount}" /></td>
+                <td><input type="text" id="spec_${rowCount}" /></td>
+                <td><input type="text" id="gsm_${rowCount}" placeholder="e.g., 60 GSM" /></td>
+                <td><input type="number" id="qty_${rowCount}" step="0.01" onchange="calculate(${rowCount})" /></td>
+                <td>
+                    <select id="type_${rowCount}" onchange="calculate(${rowCount})">
+                        <option value="">Select</option>
+                        <option value="A5">A5</option>
+                        <option value="A4">A4</option>
+                        <option value="A3">A3</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </td>
+                <td><input type="number" class="readonly" id="dummy_${rowCount}" readonly /></td>
+                <td><input type="number" class="readonly" id="reem_${rowCount}" readonly /></td>
+                <td><input type="text" class="readonly" id="req_${rowCount}" readonly /></td>
+            `;
+        }
+
+        function calculate(rowId) {
+            const qty = parseFloat(document.getElementById(`qty_${rowId}`).value) || 0;
+            const type = document.getElementById(`type_${rowId}`).value;
+            const gsm = document.getElementById(`gsm_${rowId}`).value;
+
+            if (qty && type && type !== '') {
+                const sizeData = paperSizes[type];
+                const sheetsPerDummy = sizeData.sheetsPerDummy;
+                
+                // Calculate how many dummy papers are needed
+                // For 5000 A4: 5000 / 4 = 1250 dummy papers
+                // For 5000 A3: 5000 / 2 = 2500 dummy papers
+                // For 5000 A5: 5000 / 8 = 625 dummy papers
+                const dummyPapersNeeded = qty / sheetsPerDummy;
+                
+                // Calculate reams needed
+                // 1 ream = 500 sheets, so we need qty / 500 reams
+                const totalReamsNeeded = qty / SHEETS_PER_REAM;
+
+                // Display values
+                // Dummy in Paper: show how many dummy papers are needed
+                document.getElementById(`dummy_${rowId}`).value = dummyPapersNeeded.toFixed(2);
+                // Reem in Dummy: show total reams needed
+                document.getElementById(`reem_${rowId}`).value = totalReamsNeeded.toFixed(2);
+
+                // Calculate requirement - format as "GSM-TotalReams Reem"
+                const requirement = `${gsm}-${totalReamsNeeded.toFixed(1)} Reem`;
+                document.getElementById(`req_${rowId}`).value = requirement;
+            } else {
+                document.getElementById(`dummy_${rowId}`).value = '';
+                document.getElementById(`reem_${rowId}`).value = '';
+                document.getElementById(`req_${rowId}`).value = '';
+            }
+
+            updateGrandTotal();
+            updateSummary();
+        }
+
+        function updateGrandTotal() {
+            let total = 0;
+            for (let i = 1; i <= rowCount; i++) {
+                const reem = parseFloat(document.getElementById(`reem_${i}`).value) || 0;
+                total += reem;
+            }
+            document.getElementById('grandTotal').textContent = total.toFixed(2);
+        }
+
+        function updateSummary() {
+            const summaryData = {};
+            
+            for (let i = 1; i <= rowCount; i++) {
+                const gsm = document.getElementById(`gsm_${i}`).value;
+                const type = document.getElementById(`type_${i}`).value;
+                const reem = parseFloat(document.getElementById(`reem_${i}`).value) || 0;
+                const req = document.getElementById(`req_${i}`).value;
+
+                if (gsm && reem > 0) {
+                    const key = gsm;
+                    if (!summaryData[key]) {
+                        summaryData[key] = { reem: 0, req: req };
+                    }
+                    summaryData[key].reem += reem;
+                }
+            }
+
+            // Add Other Items row
+            summaryData['Other'] = { reem: 0, req: 'Other Items ?' };
+
+            const summaryBody = document.getElementById('summaryBody');
+            summaryBody.innerHTML = '';
+
+            for (const [thickness, data] of Object.entries(summaryData)) {
+                const row = summaryBody.insertRow();
+                row.innerHTML = `
+                    <td>${thickness}</td>
+                    <td>${data.reem.toFixed(1)}</td>
+                    <td>${data.req}</td>
+                `;
+            }
+
+            // Add empty rows for 80 GSM entries
+            for (let i = 0; i < 3; i++) {
+                const row = summaryBody.insertRow();
+                row.innerHTML = `
+                    <td>80 GSM</td>
+                    <td>0</td>
+                    <td>80 GSM-0 Reem</td>
+                `;
+            }
+        }
+
+        function exportToPDF() {
+            const element = document.getElementById('reportContent');
+            const opt = {
+                margin: 10,
+                filename: 'paper_requirement_report.pdf',
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            };
+
+            html2pdf().set(opt).from(element).save();
+        }
+
+        function exportToImage() {
+            const element = document.getElementById('reportContent');
+            
+            html2pdf().set({
+                margin: 10,
+                filename: 'paper_requirement_report.png',
+                image: { type: 'png', quality: 0.98 },
+                html2canvas: { scale: 2 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+            }).from(element).toPng().get('png').then(function (png) {
+                const link = document.createElement('a');
+                link.download = 'paper_requirement_report.png';
+                link.href = png.src;
+                link.click();
+            });
+        }
+
+        // Initialize with 7 rows
+        initializeRows();
+    </script>
+</body>
+</html>
