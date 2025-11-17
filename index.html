@@ -193,7 +193,7 @@
             'Other': { sheetsPerDummy: 0 }
         };
         
-        const SHEETS_PER_REAM = 500;
+        const DUMMY_PAPERS_PER_REAM = 500;  // 1 ream = 500 dummy papers
 
         function initializeRows() {
             for (let i = 0; i < 7; i++) {
@@ -210,8 +210,44 @@
                 <td>${rowCount}</td>
                 <td><input type="text" id="po_${rowCount}" /></td>
                 <td><input type="text" id="desc_${rowCount}" /></td>
-                <td><input type="text" id="spec_${rowCount}" /></td>
-                <td><input type="text" id="gsm_${rowCount}" placeholder="e.g., 60 GSM" /></td>
+                <td>
+                    <select id="spec_${rowCount}">
+                        <option value="">Select</option>
+                        <option value="A5-SS-CL">A5-SS-CL</option>
+                        <option value="A4-DS-BW">A4-DS-BW</option>
+                        <option value="A4-DS-CL">A4-DS-CL</option>
+                        <option value="A4-SS-BW">A4-SS-BW</option>
+                        <option value="A4-SS-CL">A4-SS-CL</option>
+                        <option value="A3-DS-BW">A3-DS-BW</option>
+                        <option value="A3-DS-CL">A3-DS-CL</option>
+                        <option value="A3-SS-BW">A3-SS-BW</option>
+                        <option value="A3-SS-CL">A3-SS-CL</option>
+                        <option value="A5-DS-BW">A5-DS-BW</option>
+                        <option value="A5-DS-CL">A5-DS-CL</option>
+                        <option value="A5-SS-BW">A5-SS-BW</option>
+                        <option value="A5-SS-CL">A5-SS-CL</option>
+                        <option value="Envelope">Envelope</option>
+                        <option value="File Folder">File Folder</option>
+                        <option value="File Folder DS">File Folder DS</option>
+                    </select>
+                </td>
+                <td>
+                    <select id="gsm_${rowCount}">
+                        <option value="">Select</option>
+                        <option value="60 GSM">60 GSM</option>
+                        <option value="70 GSM">70 GSM</option>
+                        <option value="80 GSM">80 GSM</option>
+                        <option value="100 GSM">100 GSM</option>
+                        <option value="130 GSM">130 GSM</option>
+                        <option value="150 GSM">150 GSM</option>
+                        <option value="170 GSM">170 GSM</option>
+                        <option value="200 GSM">200 GSM</option>
+                        <option value="250 GSM">250 GSM</option>
+                        <option value="300 GSM">300 GSM</option>
+                        <option value="350 GSM">350 GSM</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </td>
                 <td><input type="number" id="qty_${rowCount}" step="0.01" onchange="calculate(${rowCount})" /></td>
                 <td>
                     <select id="type_${rowCount}" onchange="calculate(${rowCount})">
@@ -244,17 +280,16 @@
                 const dummyPapersNeeded = qty / sheetsPerDummy;
                 
                 // Calculate reams needed
-                // 1 ream = 500 sheets, so we need qty / 500 reams
-                const totalReamsNeeded = qty / SHEETS_PER_REAM;
+                // 1 ream = 500 dummy papers
+                // For 1250 dummy papers: 1250 / 500 = 2.5 reams
+                const reemsNeeded = dummyPapersNeeded / DUMMY_PAPERS_PER_REAM;
 
                 // Display values
-                // Dummy in Paper: show how many dummy papers are needed
                 document.getElementById(`dummy_${rowId}`).value = dummyPapersNeeded.toFixed(2);
-                // Reem in Dummy: show total reams needed
-                document.getElementById(`reem_${rowId}`).value = totalReamsNeeded.toFixed(2);
+                document.getElementById(`reem_${rowId}`).value = reemsNeeded.toFixed(2);
 
-                // Calculate requirement - format as "GSM-TotalReams Reem"
-                const requirement = `${gsm}-${totalReamsNeeded.toFixed(1)} Reem`;
+                // Calculate requirement
+                const requirement = `${gsm}-${reemsNeeded.toFixed(1)} Reem`;
                 document.getElementById(`req_${rowId}`).value = requirement;
             } else {
                 document.getElementById(`dummy_${rowId}`).value = '';
