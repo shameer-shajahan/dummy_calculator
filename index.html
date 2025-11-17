@@ -19,7 +19,7 @@
         }
 
         .container {
-            max-width: 1400px;
+            max-width: 1600px;
             margin: 0 auto;
             background: white;
             padding: 20px;
@@ -64,6 +64,7 @@
 
         #reportContent {
             background: white;
+            overflow-x: auto;
         }
 
         table {
@@ -115,14 +116,6 @@
             background-color: #f9f9f9;
         }
 
-        .paper-size-col {
-            width: 100px;
-        }
-
-        .qty-col {
-            width: 100px;
-        }
-
         @media print {
             .controls {
                 display: none;
@@ -147,12 +140,14 @@
                         <th>Sl No</th>
                         <th>PO No</th>
                         <th>Work Description</th>
-                        <th>Print Specifications</th>
+                        <th>Paper Type</th>
+                        <th>Double / Single Side / Other Item</th>
+                        <th>Colour / B&W</th>
                         <th>Paper GSM</th>
                         <th>Qty</th>
-                        <th>Paper Type</th>
                         <th>Dummy in Paper</th>
                         <th>Reem in Dummy</th>
+                        <th>Print No</th>
                         <th>Requirement in Dummy</th>
                     </tr>
                 </thead>
@@ -160,8 +155,9 @@
                 </tbody>
                 <tfoot>
                     <tr class="grand-total">
-                        <td colspan="8">Grand Total</td>
+                        <td colspan="9">Grand Total</td>
                         <td id="grandTotal">0.00</td>
+                        <td></td>
                         <td></td>
                     </tr>
                 </tfoot>
@@ -196,7 +192,7 @@
         const DUMMY_PAPERS_PER_REAM = 500;  // 1 ream = 500 dummy papers
 
         function initializeRows() {
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < 15; i++) {
                 addRow();
             }
         }
@@ -211,24 +207,31 @@
                 <td><input type="text" id="po_${rowCount}" /></td>
                 <td><input type="text" id="desc_${rowCount}" /></td>
                 <td>
-                    <select id="spec_${rowCount}">
+                    <select id="type_${rowCount}" onchange="calculate(${rowCount})">
                         <option value="">Select</option>
-                        <option value="A5-SS-CL">A5-SS-CL</option>
-                        <option value="A4-DS-BW">A4-DS-BW</option>
-                        <option value="A4-DS-CL">A4-DS-CL</option>
-                        <option value="A4-SS-BW">A4-SS-BW</option>
-                        <option value="A4-SS-CL">A4-SS-CL</option>
-                        <option value="A3-DS-BW">A3-DS-BW</option>
-                        <option value="A3-DS-CL">A3-DS-CL</option>
-                        <option value="A3-SS-BW">A3-SS-BW</option>
-                        <option value="A3-SS-CL">A3-SS-CL</option>
-                        <option value="A5-DS-BW">A5-DS-BW</option>
-                        <option value="A5-DS-CL">A5-DS-CL</option>
-                        <option value="A5-SS-BW">A5-SS-BW</option>
-                        <option value="A5-SS-CL">A5-SS-CL</option>
+                        <option value="A5">A5</option>
+                        <option value="A4">A4</option>
+                        <option value="A3">A3</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </td>
+                <td>
+                    <select id="side_${rowCount}">
+                        <option value="">Select</option>
+                        <option value="Double">Double</option>
+                        <option value="Single">Single</option>
                         <option value="Envelope">Envelope</option>
                         <option value="File Folder">File Folder</option>
-                        <option value="File Folder DS">File Folder DS</option>
+                        <option value="Medicine Cover">Medicine Cover</option>
+                        <option value="X-ray Cover">X-ray Cover</option>
+                        <option value="Digital Print">Digital Print</option>
+                    </select>
+                </td>
+                <td>
+                    <select id="color_${rowCount}">
+                        <option value="">Select</option>
+                        <option value="Col">Col</option>
+                        <option value="B&W">B&W</option>
                     </select>
                 </td>
                 <td>
@@ -249,17 +252,9 @@
                     </select>
                 </td>
                 <td><input type="number" id="qty_${rowCount}" step="0.01" onchange="calculate(${rowCount})" /></td>
-                <td>
-                    <select id="type_${rowCount}" onchange="calculate(${rowCount})">
-                        <option value="">Select</option>
-                        <option value="A5">A5</option>
-                        <option value="A4">A4</option>
-                        <option value="A3">A3</option>
-                        <option value="Other">Other</option>
-                    </select>
-                </td>
                 <td><input type="number" class="readonly" id="dummy_${rowCount}" readonly /></td>
                 <td><input type="number" class="readonly" id="reem_${rowCount}" readonly /></td>
+                <td><input type="text" id="print_${rowCount}" /></td>
                 <td><input type="text" class="readonly" id="req_${rowCount}" readonly /></td>
             `;
         }
@@ -269,19 +264,14 @@
             const type = document.getElementById(`type_${rowId}`).value;
             const gsm = document.getElementById(`gsm_${rowId}`).value;
 
-            if (qty && type && type !== '') {
+            if (qty && type && type !== '' && type !== 'Other') {
                 const sizeData = paperSizes[type];
                 const sheetsPerDummy = sizeData.sheetsPerDummy;
                 
                 // Calculate how many dummy papers are needed
-                // For 5000 A4: 5000 / 4 = 1250 dummy papers
-                // For 5000 A3: 5000 / 2 = 2500 dummy papers
-                // For 5000 A5: 5000 / 8 = 625 dummy papers
                 const dummyPapersNeeded = qty / sheetsPerDummy;
                 
                 // Calculate reams needed
-                // 1 ream = 500 dummy papers
-                // For 1250 dummy papers: 1250 / 500 = 2.5 reams
                 const reemsNeeded = dummyPapersNeeded / DUMMY_PAPERS_PER_REAM;
 
                 // Display values
@@ -315,42 +305,49 @@
             
             for (let i = 1; i <= rowCount; i++) {
                 const gsm = document.getElementById(`gsm_${i}`).value;
-                const type = document.getElementById(`type_${i}`).value;
                 const reem = parseFloat(document.getElementById(`reem_${i}`).value) || 0;
-                const req = document.getElementById(`req_${i}`).value;
 
                 if (gsm && reem > 0) {
                     const key = gsm;
                     if (!summaryData[key]) {
-                        summaryData[key] = { reem: 0, req: req };
+                        summaryData[key] = { reem: 0 };
                     }
                     summaryData[key].reem += reem;
                 }
             }
 
-            // Add Other Items row
-            summaryData['Other'] = { reem: 0, req: 'Other Items ?' };
-
             const summaryBody = document.getElementById('summaryBody');
             summaryBody.innerHTML = '';
 
+            // Add actual data rows
             for (const [thickness, data] of Object.entries(summaryData)) {
                 const row = summaryBody.insertRow();
                 row.innerHTML = `
                     <td>${thickness}</td>
                     <td>${data.reem.toFixed(1)}</td>
-                    <td>${data.req}</td>
+                    <td>${thickness}-${data.reem.toFixed(1)} Reem</td>
                 `;
             }
 
-            // Add empty rows for 80 GSM entries
-            for (let i = 0; i < 3; i++) {
-                const row = summaryBody.insertRow();
-                row.innerHTML = `
-                    <td>80 GSM</td>
-                    <td>0</td>
-                    <td>80 GSM-0 Reem</td>
-                `;
+            // Add Other Items row
+            const otherRow = summaryBody.insertRow();
+            otherRow.innerHTML = `
+                <td>Other</td>
+                <td>0</td>
+                <td>Other Items ?</td>
+            `;
+
+            // Add empty 80 GSM rows if not already present
+            const has80GSM = Object.keys(summaryData).some(key => key === '80 GSM');
+            if (!has80GSM) {
+                for (let i = 0; i < 3; i++) {
+                    const row = summaryBody.insertRow();
+                    row.innerHTML = `
+                        <td>80 GSM</td>
+                        <td>0</td>
+                        <td>80 GSM-0 Reem</td>
+                    `;
+                }
             }
         }
 
@@ -361,7 +358,7 @@
                 filename: 'paper_requirement_report.pdf',
                 image: { type: 'jpeg', quality: 0.98 },
                 html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
             };
 
             html2pdf().set(opt).from(element).save();
@@ -375,7 +372,7 @@
                 filename: 'paper_requirement_report.png',
                 image: { type: 'png', quality: 0.98 },
                 html2canvas: { scale: 2 },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'landscape' }
+                jsPDF: { unit: 'mm', format: 'a3', orientation: 'landscape' }
             }).from(element).toPng().get('png').then(function (png) {
                 const link = document.createElement('a');
                 link.download = 'paper_requirement_report.png';
@@ -384,7 +381,7 @@
             });
         }
 
-        // Initialize with 7 rows
+        // Initialize with 15 rows to match Excel template
         initializeRows();
     </script>
 </body>
