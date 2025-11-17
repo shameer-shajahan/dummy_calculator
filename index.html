@@ -182,11 +182,16 @@
 
     <script>
         let rowCount = 0;
+        
+        // Paper size configuration
+        // For A5: 1 dummy can make 8 A5 sheets
+        // For A4: 1 dummy can make 4 A4 sheets
+        // For A3: 1 dummy can make 2 A3 sheets
         const paperSizes = {
-            'A5': { sheetsPerDummy: 8 },    // 1 dummy = 8 A5 sheets
-            'A4': { sheetsPerDummy: 4 },    // 1 dummy = 4 A4 sheets
-            'A3': { sheetsPerDummy: 2 },    // 1 dummy = 2 A3 sheets
-            'Other': { sheetsPerDummy: 0 }
+            'A5': { sheetsPerDummy: 8, sheetsPerPrint: 4 },    // 4 A5 sheets = 1 print
+            'A4': { sheetsPerDummy: 4, sheetsPerPrint: 2 },    // 2 A4 sheets = 1 print
+            'A3': { sheetsPerDummy: 2, sheetsPerPrint: 1 },    // 1 A3 sheet = 1 print
+            'Other': { sheetsPerDummy: 0, sheetsPerPrint: 0 }
         };
         
         const DUMMY_PAPERS_PER_REAM = 500;  // 1 ream = 500 dummy papers
@@ -235,7 +240,7 @@
                     </select>
                 </td>
                 <td>
-                    <select id="gsm_${rowCount}">
+                    <select id="gsm_${rowCount}" onchange="calculate(${rowCount})">
                         <option value="">Select</option>
                         <option value="60 GSM">60 GSM</option>
                         <option value="70 GSM">70 GSM</option>
@@ -251,10 +256,10 @@
                         <option value="Other">Other</option>
                     </select>
                 </td>
-                <td><input type="number" id="qty_${rowCount}" step="0.01" onchange="calculate(${rowCount})" /></td>
-                <td><input type="number" class="readonly" id="dummy_${rowCount}" readonly /></td>
-                <td><input type="number" class="readonly" id="reem_${rowCount}" readonly /></td>
-                <td><input type="text" id="print_${rowCount}" /></td>
+                <td><input type="number" id="qty_${rowCount}" step="1" onchange="calculate(${rowCount})" /></td>
+                <td><input type="number" class="readonly" id="dummy_${rowCount}" step="0.01" readonly /></td>
+                <td><input type="number" class="readonly" id="reem_${rowCount}" step="0.01" readonly /></td>
+                <td><input type="number" class="readonly" id="print_${rowCount}" step="1" readonly /></td>
                 <td><input type="text" class="readonly" id="req_${rowCount}" readonly /></td>
             `;
         }
@@ -267,21 +272,34 @@
             if (qty && type && type !== '' && type !== 'Other') {
                 const sizeData = paperSizes[type];
                 const sheetsPerDummy = sizeData.sheetsPerDummy;
+                const sheetsPerPrint = sizeData.sheetsPerPrint;
+                
+                // Calculate print count first
+                // Print count = Qty / sheetsPerPrint
+                const printCount = qty / sheetsPerPrint;
                 
                 // Calculate how many dummy papers are needed
+                // Dummy papers needed = Qty / sheetsPerDummy
                 const dummyPapersNeeded = qty / sheetsPerDummy;
                 
                 // Calculate reams needed
+                // Reams = Dummy papers / 500
                 const reemsNeeded = dummyPapersNeeded / DUMMY_PAPERS_PER_REAM;
 
                 // Display values
+                document.getElementById(`print_${rowId}`).value = Math.round(printCount);
                 document.getElementById(`dummy_${rowId}`).value = dummyPapersNeeded.toFixed(2);
                 document.getElementById(`reem_${rowId}`).value = reemsNeeded.toFixed(2);
 
                 // Calculate requirement
-                const requirement = `${gsm}-${reemsNeeded.toFixed(1)} Reem`;
-                document.getElementById(`req_${rowId}`).value = requirement;
+                if (gsm) {
+                    const requirement = `${gsm}-${reemsNeeded.toFixed(1)} Reem`;
+                    document.getElementById(`req_${rowId}`).value = requirement;
+                } else {
+                    document.getElementById(`req_${rowId}`).value = '';
+                }
             } else {
+                document.getElementById(`print_${rowId}`).value = '';
                 document.getElementById(`dummy_${rowId}`).value = '';
                 document.getElementById(`reem_${rowId}`).value = '';
                 document.getElementById(`req_${rowId}`).value = '';
@@ -319,8 +337,15 @@
             const summaryBody = document.getElementById('summaryBody');
             summaryBody.innerHTML = '';
 
+            // Sort by GSM value
+            const sortedEntries = Object.entries(summaryData).sort((a, b) => {
+                const gsmA = parseInt(a[0]) || 0;
+                const gsmB = parseInt(b[0]) || 0;
+                return gsmA - gsmB;
+            });
+
             // Add actual data rows
-            for (const [thickness, data] of Object.entries(summaryData)) {
+            for (const [thickness, data] of sortedEntries) {
                 const row = summaryBody.insertRow();
                 row.innerHTML = `
                     <td>${thickness}</td>
@@ -336,19 +361,6 @@
                 <td>0</td>
                 <td>Other Items ?</td>
             `;
-
-            // Add empty 80 GSM rows if not already present
-            const has80GSM = Object.keys(summaryData).some(key => key === '80 GSM');
-            if (!has80GSM) {
-                for (let i = 0; i < 3; i++) {
-                    const row = summaryBody.insertRow();
-                    row.innerHTML = `
-                        <td>80 GSM</td>
-                        <td>0</td>
-                        <td>80 GSM-0 Reem</td>
-                    `;
-                }
-            }
         }
 
         function exportToPDF() {
